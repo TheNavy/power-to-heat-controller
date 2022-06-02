@@ -10,8 +10,14 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <WiFi.h>
+#include <AsyncTCP.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
+#include "ESPAsyncWebServer.h"
+#include "SPIFFS.h"
 
 //I/O
 const int PWMPin = 16;  // GPIO16
@@ -73,16 +79,18 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-void setup()
-{  
+void setup() {  
   Serial.begin(115200);  // Starts Serial Connection
   Serial.print("Booting.....");
+
+  setup_wifi(); // Setup the WiFi
+
+  ArduinoOTA.begin(WiFi.localIP(), "Arduino", "password", InternalStorage); // Setup the OTA Update
 
   // PWM-Init
   ledcSetup(PWMChannel, PWMFreq, PWMResolution);
   ledcAttachPin(PWMPin, PWMChannel);
 
-  setup_wifi(); // Setup the WiFi
   client.setServer(mqtt_server, 1883);
 }
 
@@ -138,6 +146,8 @@ void set_heater(int tempPower) {
 }
 
 void loop() {
+ ArduinoOTA.poll(); //OTA-Updates
+
   if (!client.connected()) { //Checks MQTT-Connection
     reconnect();
   }

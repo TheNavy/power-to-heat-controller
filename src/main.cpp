@@ -11,6 +11,7 @@
 #include <DallasTemperature.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <Arduino.h>
 
 //I/O
 const int PWMPin = 16;  // GPIO16
@@ -52,19 +53,6 @@ float available_power = 0; // Available power in Watts
 float heater_power = 0; // Heater Level
 bool Overheat = false; // Overheat Protection
 
-void setup()
-{  
-  Serial.begin(115200);  // Starts Serial Connection
-  Serial.print("Booting.....");
-
-  // PWM-Init
-  ledcSetup(PWMChannel, PWMFreq, PWMResolution);
-  ledcAttachPin(PWMPin, PWMChannel);
-
-  setup_wifi(); // Setup the WiFi
-  client.setServer(mqtt_server, 1883);
-}
-
 void setup_wifi() {
   delay(10);
   // We start by connecting to a WiFi network
@@ -83,6 +71,19 @@ void setup_wifi() {
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+}
+
+void setup()
+{  
+  Serial.begin(115200);  // Starts Serial Connection
+  Serial.print("Booting.....");
+
+  // PWM-Init
+  ledcSetup(PWMChannel, PWMFreq, PWMResolution);
+  ledcAttachPin(PWMPin, PWMChannel);
+
+  setup_wifi(); // Setup the WiFi
+  client.setServer(mqtt_server, 1883);
 }
 
 void callback(char* topic, byte* message, unsigned int length) {

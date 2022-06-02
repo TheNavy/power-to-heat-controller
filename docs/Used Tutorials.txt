@@ -1,0 +1,8 @@
+MQTT
+https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
+
+1-Wire
+https://randomnerdtutorials.com/esp32-multiple-ds18b20-temperature-sensors/
+
+PWM
+https://www.electronicshub.org/esp32-pwm-tutorial/

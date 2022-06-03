@@ -54,10 +54,43 @@ const int PWMmin = 102; // 10%
 const int PWMmax = 921; // 90%
 int dutyCycle = 102;
 
+// Create AsyncWebServer object on port 80
+AsyncWebServer server(80);
+
 // Additional
 float available_power = 0; // Available power in Watts
 float heater_power = 0; // Heater Level
 bool Overheat = false; // Overheat Protection
+int manualDutyCycle = -1; // Manual Control
+
+// Replaces html-placeholder with state value
+String processor(const String& var){
+  String tempValue;
+  if(var == "STATE"){
+    if(manualDutyCycle == 100){
+      tempValue = "100%";
+    }
+    else if(manualDutyCycle == 50){
+      tempValue = "50%";
+    }
+    else if(manualDutyCycle == 0){
+      tempValue = "0%";
+    }
+    else{
+      tempValue = "DISABLED";
+    }
+    return tempValue;
+  }
+  if(var == "WATTS"){
+    tempValue = available_power;
+    return tempValue;
+  }
+  if(var == "LEVEL"){
+    tempValue = heater_power;
+    return tempValue;
+  }
+  return String();
+}
 
 void setup_wifi() {
   delay(10);
@@ -79,19 +112,70 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+void setup_http() {
+    // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  
+  // Route to load style.css file
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/style.css", "text/css");
+  });
+
+  // Route to set Heater to 100%
+  server.on("/100", HTTP_GET, [](AsyncWebServerRequest *request){
+    manualDutyCycle = 100;    
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+
+  // Route to set Heater to 50%
+  server.on("/50", HTTP_GET, [](AsyncWebServerRequest *request){
+    manualDutyCycle = 50;   
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+  
+  // Route to set Heater to 0%
+  server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
+    manualDutyCycle = 0;    
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+
+  // Route to set Manual-Control OFF
+  server.on("/dis", HTTP_GET, [](AsyncWebServerRequest *request){
+    manualDutyCycle = -1;  
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+
+  // Start server
+  server.begin();
+}
+
 void setup() {  
   Serial.begin(115200);  // Starts Serial Connection
   Serial.print("Booting.....");
 
-  setup_wifi(); // Setup the WiFi
+  // Initialize SPIFFS
+  if(!SPIFFS.begin(true)){
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
 
-  ArduinoOTA.begin(WiFi.localIP(), "Arduino", "password", InternalStorage); // Setup the OTA Update
+  // Setup the WiFi
+  setup_wifi();
 
-  // PWM-Init
+  // Initialize OTA-Update
+  ArduinoOTA.begin(WiFi.localIP(), "Arduino", "password", InternalStorage);
+
+  // Initialize PWM
   ledcSetup(PWMChannel, PWMFreq, PWMResolution);
   ledcAttachPin(PWMPin, PWMChannel);
 
+  // Start the MQTT-Server
   client.setServer(mqtt_server, 1883);
+
+  // Start the WebServer
+  setup_http();
 }
 
 void callback(char* topic, byte* message, unsigned int length) {
@@ -130,6 +214,25 @@ void set_heater(int tempPower) {
   heater_power = ((PWMrange / 100) * tempLvl) + PWMmin;
   dutyCycle = round(heater_power);
 
+  /*
+   * OVERHEAT PROTECTION!!!
+   * Turns Heater off @ 75°C and back on @ 70°C
+   */
+  if (Overheat) {
+    dutyCycle = PWMmin;
+  }
+
+  if (dutyCycle > PWMmax) {
+    dutyCycle = PWMmax;
+  }
+  
+  ledcWrite(PWMChannel, dutyCycle); // Sets the PWM-Duty-Cycle!
+}
+
+void set_heater_manual(int tempPower) {
+  int PWMrange = PWMmax - PWMmin;
+  heater_power = ((PWMrange / 100) * tempPower) + PWMmin;
+  dutyCycle = round(heater_power);
   /*
    * OVERHEAT PROTECTION!!!
    * Turns Heater off @ 75°C and back on @ 70°C
@@ -185,5 +288,10 @@ void loop() {
     }    
   }
 
-  set_heater(available_power);
+  if(manualDutyCycle >= 0){
+    set_heater_manual(manualDutyCycle);
+  }else{
+    set_heater(available_power);
+  }
+  
 }

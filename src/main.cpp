@@ -18,16 +18,17 @@
 #include <ArduinoOTA.h>
 #include "ESPAsyncWebServer.h"
 #include "SPIFFS.h"
+#include "config.h"
 
 //I/O
 const int PWMPin = 16;  // GPIO16
 
-// WiFi
-const char* ssid     = "your-ssid";
-const char* password = "your-password";
+// WiFi -> defined in config.h
+// const char* ssid     = "your-ssid";
+// const char* password = "your-password";
 
-// MQTT
-const char* mqtt_server = "YOUR_MQTT_BROKER_IP_ADDRESS";
+// MQTT -> defined in config.h
+// const char* mqtt_server = "YOUR_MQTT_BROKER_IP_ADDRESS";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
